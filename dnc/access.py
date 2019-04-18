@@ -435,8 +435,8 @@ class MemoryAccess(snt.RNNCore):
                     name=None, **unused_kwargs):
     # Now: copied the values from the state_size (state size will not be needed anymore, only used for the default )
     initial_rom_weight = tf.one_hot(tf.zeros(batch_size, dtype='int32'), self._rom.memory_size(), dtype=dtype)
-    initial_mu=tf.ones([batch_size, 1], dtype)
-    initial_mu=initial_mu*0.3
+    initial_mu=tf.zeros([batch_size, 1], dtype)
+    # initial_mu=initial_mu*0.3
     return AccessState(
       memory=tf.zeros([batch_size, self._memory_size, self._word_size], dtype),
       read_weights=tf.zeros([batch_size, self._num_reads, self._memory_size], dtype),
