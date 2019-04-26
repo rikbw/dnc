@@ -35,6 +35,7 @@ def plot_results(results, label, color):
 plot_results(results('error_rom_rounded'), color='g', label='With ROM')
 plot_results(results('error_no_rom_rounded'), color='r', label='Without ROM')
 plot_results(results('error_weird_rom_rounded'), color='b', label='With random ROM')
+plot_results(results('error_rom_read_rounded'), color='y', label='With lines 7-11')
 
 leg = plt.legend()
 plt.ylabel('MSE')
