@@ -119,18 +119,31 @@ class MemoryAccess(snt.RNNCore):
 
     content = [
       ([0, 1], {'next_rom_mode': [0, 1]}, 1), # A value to read from to mix nothing
-      ([1, 0], {'write_gate': [1], 'write_weight': weighting, 'next_rom_mode': [0, 1]}, 1),
-      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      ([0, 0], {'next_rom_mode': [0, 1]}, 1),
-      ([0, 0], {'read_weight': weighting, 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
+      # ([1, 0], {'write_gate': [1], 'write_weight': weighting, 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'next_rom_mode': [0, 1]}, 1),
+      ([1, 1], {'read_weight': weighting, 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0]}, 0),
     ]
+
+    # Content that is not informative
+    # content = [
+    #   ([0, 1], {'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'allocation_gate': [0], 'read_mode': [1, 0, 0]}, 1),
+    #   ([0, 1], {'allocation_gate': [1], 'read_mode': [0, 1, 0]}, 0),
+    #   ([0, 1], {'allocation_gate': [0.5], 'write_gate': [0]}, 1),
+    #   ([0, 1], {'read_mode': [0.5, 0.5, 0], 'write_gate': [0.5]}, 1),
+    #   ([1, 0], {'next_rom_mode': [0.5, 0.5], 'write_gate': [0.5], 'write_weight': weighting}, 1),
+    #   ([0, 0], {'next_rom_mode': [0.5, 0.5], 'write_gate': [0], 'write_weight': weighting}, 1),
+    #   ([0, 1], {'allocation_gate': [1], 'read_mode': [0, 1, 0]}, 0),
+    #   ([1, 1], {'write_gate': [1], 'allocation_gate': [1], 'read_mode': [1, 0, 0]}, 1)
+    # ]
     self._rom = rom.ROM(content, memory_size)
     self._mixer = rom.Mixer()
 
