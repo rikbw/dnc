@@ -121,7 +121,7 @@ def train(num_training_iterations, report_interval):
 
   output_concat = run_model(dataset_tensors.observations, dataset.target_size, True, time_major=dataset.time_major())
 
-  rom_weighting_size = 6
+  rom_weighting_size = 12
 
   output_logits = output_concat[:, :, 0:dataset.target_size]
   output_read_weightings = output_concat[:, :, dataset.target_size:(dataset.target_size+FLAGS.memory_size)]
@@ -136,11 +136,6 @@ def train(num_training_iterations, report_interval):
 
   # Used for visualization.
   output = tf.round(tf.sigmoid(output_logits))
-
-  print('TARGET:')
-  print(dataset_tensors.target[0, :, :])
-  print('OUTPUT:')
-  print(output[0, :, :])
 
   # Rescaling first adds a row of ones so that max is always 255 in the rescaling
   output_read_weightings = get_concat_with_ones(output_read_weightings)

@@ -119,12 +119,12 @@ class MemoryAccess(snt.RNNCore):
 
     content = [
       ([0, 1], {'next_rom_mode': [0, 1]}, 1), # A value to read from to mix nothing
-      # ([1, 0], {'write_gate': [1], 'write_weight': weighting, 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'next_rom_mode': [0, 1]}, 1),
+      ([1, 0], {'write_gate': [1], 'write_weight': weighting, 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'next_rom_mode': [0, 1]}, 1),
       ([1, 1], {'read_weight': weighting, 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
@@ -196,7 +196,7 @@ class MemoryAccess(snt.RNNCore):
         memory=memory,
         read_weights=read_weights,
         write_weights=write_weights,
-        mu=inputs['mu'],
+        mu=inputs['next_mu'],
         rom_weight=rom_weight,
         rom_mode=inputs['rom_mode'], # rom mode is needed for debugging purposes (we output it from the network)
         rom_key=rom_key, # Needed for debugging (could move out of the state and just output it
@@ -209,7 +209,7 @@ class MemoryAccess(snt.RNNCore):
             forward_weights[:, 0, 0, :]) # For debugging
 
   # TODO make sure prev_mu is initialized to 0
-  def _read_inputs(self, inputs, prev_rom_weight, prev_mu, prev_rom_mode, prev_rom_mode_usage):
+  def _read_inputs(self, inputs, prev_rom_weight, mu, prev_rom_mode, prev_rom_mode_usage):
     """Applies transformations to `inputs` to get control for this module."""
 
     def _linear(first_dim, second_dim, name, activation=None):
@@ -265,7 +265,7 @@ class MemoryAccess(snt.RNNCore):
       snt.Linear(1, name='mu_controller')(inputs))
 
     # MIXER: rom read mode. Mix this with the previous mu
-    rom_mode = self._mixer(rom_mode, prev_rom_mode, prev_mu, prev_rom_mode_usage)
+    rom_mode = self._mixer(rom_mode, prev_rom_mode, mu, prev_rom_mode_usage)
 
     # Read rom contents
     rom_word, rom_weight = self._rom(rom_key, rom_strength, rom_mode, prev_rom_weight)
@@ -288,15 +288,10 @@ class MemoryAccess(snt.RNNCore):
 
     # Update mu
     batch_size = tf.shape(mu_rom)[0]
-    new_mu_usage = tf.ones([batch_size, 1])  # Usage is always one for mu
-    # print('Mixing mu: ')
-    # print('previous: ')
-    # print(prev_mu)
-    # print('controller: ')
-    # print(mu_controller)
-    # print('rom: ')
-    # print(mu_rom)
-    new_mu = self._mixer(mu_controller, mu_rom, prev_mu, new_mu_usage)
+    mu_usage = tf.ones([batch_size, 1])  # Usage is always one for mu
+    next_mu = self._mixer(mu_controller, mu_rom, mu, mu_usage)
+    # If mu from controller is larger than the mu for this timestep, use that mu
+    mu = tf.maximum(mu_controller, mu)
 
     # TODO lots of duplication here, extract into a method on the rom
 
@@ -304,20 +299,20 @@ class MemoryAccess(snt.RNNCore):
     first_head_read_mode = read_mode[:, 0, :]
     rom_read_mode_usage = rom_word['read_mode'][:, 0:1]
     rom_read_mode = rom_word['read_mode'][:, 1:]
-    mixed_read_mode = self._mixer(first_head_read_mode, rom_read_mode, new_mu, rom_read_mode_usage)
+    mixed_read_mode = self._mixer(first_head_read_mode, rom_read_mode, mu, rom_read_mode_usage)
     read_mode = tf.expand_dims(mixed_read_mode, 1)
 
     # MIXER: allocation gate
     first_head_allocation_gate = allocation_gate
     rom_allocation_gate_usage = rom_word['allocation_gate'][:, 0:1]
     rom_allocation_gate = rom_word['allocation_gate'][:, 1:]
-    allocation_gate = self._mixer(first_head_allocation_gate, rom_allocation_gate, new_mu, rom_allocation_gate_usage)
+    allocation_gate = self._mixer(first_head_allocation_gate, rom_allocation_gate, mu, rom_allocation_gate_usage)
 
     # MIXER: write gate
     first_head_write_gate = write_gate
     rom_write_gate_usage = rom_word['write_gate'][:, 0:1]
     rom_write_gate = rom_word['write_gate'][:, 1:]
-    write_gate = self._mixer(first_head_write_gate, rom_write_gate, new_mu, rom_write_gate_usage)
+    write_gate = self._mixer(first_head_write_gate, rom_write_gate, mu, rom_write_gate_usage)
 
     result = {
         'read_content_keys': read_keys,
@@ -334,7 +329,8 @@ class MemoryAccess(snt.RNNCore):
         # 'rom_strength': rom_strength, # Maybe later add these, could be useful for debugging
         'rom_mode': rom_mode,
         'next_rom_mode': rom_word['next_rom_mode'],  # Content on the rom can also influence the next rom mode
-        'mu': new_mu,
+        'mu': mu,
+        'next_mu': next_mu,
         'rom_read_weight': rom_word['read_weight'],
         'rom_write_weight': rom_word['write_weight'],
         'prev_rom_read_mode': rom_word['next_rom_mode'][:, 1:],
