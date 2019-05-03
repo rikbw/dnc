@@ -63,7 +63,7 @@ tf.flags.DEFINE_integer("max_repeats", 2,
                         "Upper limit on number of copy repeats.")
 
 # Training options.
-tf.flags.DEFINE_integer("num_training_iterations", 100000,
+tf.flags.DEFINE_integer("num_training_iterations", 1500,
                         "Number of iterations to train for.")
 tf.flags.DEFINE_integer("report_interval", 100,
                         "Iterations between reports (samples, valid loss).")
@@ -72,6 +72,10 @@ tf.flags.DEFINE_string("checkpoint_dir", "./checkpoint",
 tf.flags.DEFINE_integer("checkpoint_interval", 1000,
                         "Checkpointing step interval.")
 tf.flags.DEFINE_string("summary_dir", "./summaries", "Summary directoyu")
+
+# Writing error to file
+tf.flags.DEFINE_string("error_file_name", "error_file_default", "The file where the error will be written")
+tf.flags.DEFINE_integer("error_interval", 10, "The interval over which the error is averaged")
 
 def run_model(input_sequence, output_size, return_weights, time_major=False):
   """Runs model on input sequence."""
@@ -111,7 +115,7 @@ def train(num_training_iterations, report_interval):
   # Eager execution, for printing
   # tf.enable_eager_execution()
 
-  dataset = repeat_sequence.RepeatSequence(5, 5, 7, FLAGS.batch_size)
+  dataset = repeat_sequence.RepeatSequence(5, 5, 7, 4, FLAGS.batch_size)
 
   dataset_tensors = dataset()
 
@@ -145,6 +149,7 @@ def train(num_training_iterations, report_interval):
   output_forward_weights = get_concat_with_ones(output_forward_weights)
 
   train_loss = dataset.cost(output_logits, dataset_tensors.target)
+  train_error = dataset.error(output_logits, dataset_tensors.target)
 
   tf.summary.image('Input', tf.expand_dims(dataset_tensors.observations, 3))
   tf.summary.image('Target', tf.expand_dims(dataset_tensors.target, 3))
@@ -158,7 +163,13 @@ def train(num_training_iterations, report_interval):
   tf.summary.image('rom_key', tf.expand_dims(output_rom_key, 3))
   tf.summary.image('Non mixed read weights', tf.expand_dims(output_original_read_weights, 3))
   tf.summary.image('Forward read weights', tf.expand_dims(output_forward_weights, 3))
-  tf.summary.histogram('Loss', train_loss)
+  tf.summary.scalar('Loss', train_loss)
+
+  # tf.io.write_file(
+  #   'loss_file',
+  #   tf.dtypes.as_string(train_loss),
+  #   name=None
+  # )
 
   merged = tf.summary.merge_all()
 
@@ -194,6 +205,9 @@ def train(num_training_iterations, report_interval):
 
   # hooks += [tf_debug.TensorBoardDebugHook("127.0.0.1:6007")]
 
+  error_file = open('error_files/' + FLAGS.error_file_name + '.csv', 'a')
+  error_file.write('error\n')
+
   # Train.
   with tf.train.SingularMonitoredSession(
       hooks=hooks, checkpoint_dir=FLAGS.checkpoint_dir) as sess:
@@ -202,10 +216,18 @@ def train(num_training_iterations, report_interval):
 
     start_iteration = sess.run(global_step)
     total_loss = 0
+    total_error = 0
 
     for train_iteration in range(start_iteration, num_training_iterations):
-      _, loss, summary, rom_weight_np = sess.run([train_step, train_loss, merged, output_rom_weight])
+      _, loss, summary, rom_weight_np, error = sess.run([train_step, train_loss, merged, output_rom_weight, train_error])
       total_loss += loss
+      total_error += error
+
+      if (train_iteration + 1) % FLAGS.error_interval == 0:
+        avg_error = total_error / FLAGS.error_interval
+        # print(avg_error)
+        error_file.write(str(avg_error) + "\n")
+        total_error = 0
 
       if (train_iteration + 1) % report_interval == 0:
         dataset_tensors_np, output_np, output_rom_weight_np = sess.run([dataset_tensors, output, output_rom_weight])
@@ -235,6 +257,9 @@ def get_concat_with_ones(tensor):
   shape = tf.shape(tensor)
   return tf.concat([tf.ones([shape[0], 1, shape[2]]), tensor], 1)
 
+def my_tf_round(x, decimals=0):
+  multiplier = tf.constant(10 ** decimals, dtype=x.dtype)
+  return tf.round(x * multiplier) / multiplier
 
 if __name__ == "__main__":
   tf.app.run()

@@ -14,12 +14,14 @@ class RepeatSequence(snt.AbstractModule):
                min_nb_vecs=3,
                max_nb_vecs=5,
                nb_bits=7,
+               num_repeats=1,
                batch_size=16):
     super(RepeatSequence, self).__init__(name='RepeatSequence')
 
     self._min_nb_vecs = min_nb_vecs
     self._max_nb_vecs = max_nb_vecs
     self._nb_bits = nb_bits
+    self._num_repeats = num_repeats
     self._batch_size = batch_size
 
     self.target_size = self._nb_bits + 1
@@ -56,7 +58,7 @@ class RepeatSequence(snt.AbstractModule):
       # Pad the observation
       observation_padded = tf.concat([
         observation_with_flag,
-        tf.zeros([nb_vecs, self.target_size], dtype=tf.float32)
+        tf.zeros([nb_vecs*self._num_repeats, self.target_size], dtype=tf.float32)
       ], 0)
 
       # TARGET
@@ -64,8 +66,10 @@ class RepeatSequence(snt.AbstractModule):
       # Add zeros (padding) to the target
       target_padding = tf.zeros([nb_vecs + 1, self.target_size], dtype=tf.float32)
 
-      # Add the observation to the target
+      # Add the observation to the target,
       target = tf.concat([target_padding, obs], 0)
+      for i in range(1,self._num_repeats):
+        target = tf.concat([target, obs], 0)
 
       obs_tensors.append(observation_padded)
       target_tensors.append(target)
@@ -92,6 +96,33 @@ class RepeatSequence(snt.AbstractModule):
     loss = tf.reduce_sum(loss_batch) / batch_size
 
     return loss
+
+  def error(self, logits, targ):
+    # output = tf.div(
+    #   tf.subtract(
+    #     logits,
+    #     tf.reduce_min(logits)
+    #   ),
+    #   tf.subtract(
+    #     tf.reduce_max(logits),
+    #     tf.reduce_min(logits)
+    #   )
+    # )
+    output = tf.round(tf.sigmoid(logits))
+    error = tf.subtract(output, targ)
+    error = tf.square(error)
+
+    # Sum across the vectors
+    error_batch_time = tf.reduce_sum(error, axis=2)
+
+    # Sum away time
+    error_batch = tf.reduce_sum(error_batch_time, axis=1)
+
+    # Batch major
+    batch_size = tf.cast(tf.shape(logits)[0], dtype=error.dtype)
+    error = tf.reduce_sum(error_batch) / batch_size
+
+    return error
 
 
 def bitstring_readable(data, batch_size, model_output=None, whole_batch=False):
