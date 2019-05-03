@@ -21,7 +21,6 @@ from __future__ import print_function
 import collections
 import sonnet as snt
 import tensorflow as tf
-import numpy as np
 
 from dnc import addressing
 from dnc import util
@@ -210,7 +209,6 @@ class MemoryAccess(snt.RNNCore):
             original_read_weights[:, 0, :], # For debugging
             forward_weights[:, 0, 0, :]) # For debugging
 
-  # TODO make sure prev_mu is initialized to 0
   def _read_inputs(self, inputs, prev_rom_weight, mu, prev_rom_mode, prev_rom_mode_usage):
     """Applies transformations to `inputs` to get control for this module."""
 

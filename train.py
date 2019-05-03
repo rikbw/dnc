@@ -19,17 +19,12 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import sonnet as snt
 
 from dnc import dnc
-from dnc import dnc_feedforward
-from dnc import repeat_copy
 from tasks import repeat_sequence
 
 import numpy as np
 np.set_printoptions(threshold=np.inf)
-
-from tensorflow.python import debug as tf_debug
 
 FLAGS = tf.flags.FLAGS
 
@@ -191,8 +186,6 @@ def train(num_training_iterations, report_interval):
   else:
     hooks = []
 
-  # hooks += [tf_debug.TensorBoardDebugHook("127.0.0.1:6007")]
-
   error_file = open('error_files/' + FLAGS.error_file_name + '.csv', 'a')
   error_file.write('error\n')
 
@@ -213,7 +206,6 @@ def train(num_training_iterations, report_interval):
 
       if (train_iteration + 1) % FLAGS.error_interval == 0:
         avg_error = total_error / FLAGS.error_interval
-        # print(avg_error)
         error_file.write(str(avg_error) + "\n")
         total_error = 0
 
@@ -228,6 +220,8 @@ def train(num_training_iterations, report_interval):
         total_loss = 0
 
         train_writer.add_summary(summary, train_iteration)
+
+  error_file.close()
 
 def to_batch_major(tensor):
   return tf.transpose(tensor, [1, 0, 2])
