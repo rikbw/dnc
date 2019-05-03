@@ -132,6 +132,8 @@ class MemoryAccess(snt.RNNCore):
       ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0]}, 0),
     ]
 
+    self.rom_size = len(content)
+
     # Content that is not informative
     # content = [
     #   ([0, 1], {'next_rom_mode': [0, 1]}, 1),

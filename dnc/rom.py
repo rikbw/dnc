@@ -6,7 +6,6 @@ from dnc import addressing
 
 # TODO:
 # - Right now, 'linkage' is just the next element in memory. Implement it like the DNC to allow multiple next elements.
-# - Make the mixer more extensible
 
 
 class ROM(snt.AbstractModule):
