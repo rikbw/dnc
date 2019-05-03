@@ -95,8 +95,6 @@ def run_model(input_sequence, output_size, return_weights, time_major=False):
   clip_value = FLAGS.clip_value
 
   dnc_core = dnc.DNC(access_config, controller_config, output_size, clip_value, return_weights=return_weights)
-  # TODO implement this with the feedforward controller. will need to return some different values there for the images enz
-  # dnc_core = dnc_feedforward.DNCfeedforward(access_config, controller_config, 10, clip_value, return_weights=return_weights)
   initial_state = dnc_core.initial_state(FLAGS.batch_size)
   output_sequence, _ = tf.nn.dynamic_rnn(
       cell=dnc_core,
@@ -110,13 +108,6 @@ def run_model(input_sequence, output_size, return_weights, time_major=False):
 
 def train(num_training_iterations, report_interval):
   """Trains the DNC and periodically reports the loss."""
-
-  # dataset = repeat_copy.RepeatCopy(FLAGS.num_bits, FLAGS.batch_size,
-  #                                  FLAGS.min_length, FLAGS.max_length,
-  #                                  FLAGS.min_repeats, FLAGS.max_repeats)
-
-  # Eager execution, for printing
-  # tf.enable_eager_execution()
 
   dataset = repeat_sequence.RepeatSequence(5, 5, 7, 4, FLAGS.batch_size)
 
@@ -237,8 +228,6 @@ def train(num_training_iterations, report_interval):
         total_loss = 0
 
         train_writer.add_summary(summary, train_iteration)
-
-# def run_saved():
 
 def to_batch_major(tensor):
   return tf.transpose(tensor, [1, 0, 2])
