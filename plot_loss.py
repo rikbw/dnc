@@ -32,10 +32,11 @@ def plot_results(results, label, color):
   plt.plot(x, results[0], c=color, linewidth=0.5)
   plt.plot(x, results[2], c=color, linewidth=0.5)
 
-plot_results(results('error_rom_rounded'), color='g', label='With ROM')
+plot_results(results('error_rom_rounded'), color='g', label='With lines 1-11')
+plot_results(results('error_rom_read_rounded'), color='y', label='With lines 7-11')
+plot_results(results('error_rom_write_rounded'), color='magenta', label='With lines 1-6')
 plot_results(results('error_no_rom_rounded'), color='r', label='Without ROM')
 plot_results(results('error_weird_rom_rounded'), color='b', label='With random ROM')
-plot_results(results('error_rom_read_rounded'), color='y', label='With lines 7-11')
 
 leg = plt.legend()
 plt.ylabel('MSE')
