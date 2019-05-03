@@ -77,6 +77,9 @@ tf.flags.DEFINE_string("summary_dir", "./summaries", "Summary directoyu")
 tf.flags.DEFINE_string("error_file_name", "error_file_default", "The file where the error will be written")
 tf.flags.DEFINE_integer("error_interval", 10, "The interval over which the error is averaged")
 
+# Outputting tensorboard images
+tf.flags.DEFINE_boolean("output_images", False, "Whether or not we output images for tensorboard")
+
 def run_model(input_sequence, output_size, return_weights, time_major=False):
   """Runs model on input sequence."""
 
@@ -119,58 +122,52 @@ def train(num_training_iterations, report_interval):
 
   dataset_tensors = dataset()
 
-  output_concat = run_model(dataset_tensors.observations, dataset.target_size, True, time_major=dataset.time_major())
+  output_concat = run_model(dataset_tensors.observations, dataset.target_size, FLAGS.output_images, time_major=dataset.time_major())
 
   rom_weighting_size = 12
 
   output_logits = output_concat[:, :, 0:dataset.target_size]
-  output_read_weightings = output_concat[:, :, dataset.target_size:(dataset.target_size+FLAGS.memory_size)]
-  output_write_weightings = output_concat[:, :, (dataset.target_size+FLAGS.memory_size):(dataset.target_size+2*FLAGS.memory_size)]
-  output_mu = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size):(dataset.target_size+2*FLAGS.memory_size+1)]
-  output_rom_weight = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size)]
-  output_rom_mode = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2)]
-  output_read_mode = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3)]
-  output_rom_key = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2)]
-  output_original_read_weights = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2+FLAGS.memory_size)]
-  output_forward_weights = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2+FLAGS.memory_size):]
+  if FLAGS.output_images:
+    output_read_weightings = output_concat[:, :, dataset.target_size:(dataset.target_size+FLAGS.memory_size)]
+    output_write_weightings = output_concat[:, :, (dataset.target_size+FLAGS.memory_size):(dataset.target_size+2*FLAGS.memory_size)]
+    output_mu = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size):(dataset.target_size+2*FLAGS.memory_size+1)]
+    output_rom_weight = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size)]
+    output_rom_mode = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2)]
+    output_read_mode = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3)]
+    output_rom_key = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2)]
+    output_original_read_weights = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2):(dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2+FLAGS.memory_size)]
+    output_forward_weights = output_concat[:, :, (dataset.target_size+2*FLAGS.memory_size+1+rom_weighting_size+2+3+2+FLAGS.memory_size):]
+
+    # Rescaling first adds a row of ones so that max is always 255 in the rescaling
+    output_read_weightings = get_concat_with_ones(output_read_weightings)
+    output_write_weightings = get_concat_with_ones(output_write_weightings)
+    output_mu = get_concat_with_ones(output_mu)
+    output_rom_weight = get_concat_with_ones(output_rom_weight)
+    output_rom_mode = get_concat_with_ones(output_rom_mode)
+    output_read_mode = get_concat_with_ones(output_read_mode)
+    output_rom_key = get_concat_with_ones(output_rom_key)
+    output_original_read_weights = get_concat_with_ones((output_original_read_weights))
+    output_forward_weights = get_concat_with_ones(output_forward_weights)
+
+    tf.summary.image('Input', tf.expand_dims(dataset_tensors.observations, 3))
+    tf.summary.image('Target', tf.expand_dims(dataset_tensors.target, 3))
+    tf.summary.image('Output', tf.expand_dims(output_logits, 3))
+    tf.summary.image('Read_weightings', tf.expand_dims(output_read_weightings, 3))
+    tf.summary.image('Write_weightings', tf.expand_dims(output_write_weightings, 3))
+    tf.summary.image('Mu', tf.expand_dims(output_mu, 3))
+    tf.summary.image('Rom_weight', tf.expand_dims(output_rom_weight, 3))
+    tf.summary.image('rom_mode', tf.expand_dims(output_rom_mode, 3))
+    tf.summary.image('read_mode', tf.expand_dims(output_read_mode, 3))
+    tf.summary.image('rom_key', tf.expand_dims(output_rom_key, 3))
+    tf.summary.image('Non mixed read weights', tf.expand_dims(output_original_read_weights, 3))
+    tf.summary.image('Forward read weights', tf.expand_dims(output_forward_weights, 3))
 
   # Used for visualization.
   output = tf.round(tf.sigmoid(output_logits))
-
-  # Rescaling first adds a row of ones so that max is always 255 in the rescaling
-  output_read_weightings = get_concat_with_ones(output_read_weightings)
-  output_write_weightings = get_concat_with_ones(output_write_weightings)
-  output_mu = get_concat_with_ones(output_mu)
-  output_rom_weight = get_concat_with_ones(output_rom_weight)
-  output_rom_mode = get_concat_with_ones(output_rom_mode)
-  output_read_mode = get_concat_with_ones(output_read_mode)
-  output_rom_key = get_concat_with_ones(output_rom_key)
-  output_original_read_weights = get_concat_with_ones((output_original_read_weights))
-  output_forward_weights = get_concat_with_ones(output_forward_weights)
-
   train_loss = dataset.cost(output_logits, dataset_tensors.target)
   train_error = dataset.error(output_logits, dataset_tensors.target)
 
-  tf.summary.image('Input', tf.expand_dims(dataset_tensors.observations, 3))
-  tf.summary.image('Target', tf.expand_dims(dataset_tensors.target, 3))
-  tf.summary.image('Output', tf.expand_dims(output_logits, 3))
-  tf.summary.image('Read_weightings', tf.expand_dims(output_read_weightings, 3))
-  tf.summary.image('Write_weightings', tf.expand_dims(output_write_weightings, 3))
-  tf.summary.image('Mu', tf.expand_dims(output_mu, 3))
-  tf.summary.image('Rom_weight', tf.expand_dims(output_rom_weight, 3))
-  tf.summary.image('rom_mode', tf.expand_dims(output_rom_mode, 3))
-  tf.summary.image('read_mode', tf.expand_dims(output_read_mode, 3))
-  tf.summary.image('rom_key', tf.expand_dims(output_rom_key, 3))
-  tf.summary.image('Non mixed read weights', tf.expand_dims(output_original_read_weights, 3))
-  tf.summary.image('Forward read weights', tf.expand_dims(output_forward_weights, 3))
   tf.summary.scalar('Loss', train_loss)
-
-  # tf.io.write_file(
-  #   'loss_file',
-  #   tf.dtypes.as_string(train_loss),
-  #   name=None
-  # )
-
   merged = tf.summary.merge_all()
 
   # Set up optimizer with global norm clipping.
@@ -219,7 +216,7 @@ def train(num_training_iterations, report_interval):
     total_error = 0
 
     for train_iteration in range(start_iteration, num_training_iterations):
-      _, loss, summary, rom_weight_np, error = sess.run([train_step, train_loss, merged, output_rom_weight, train_error])
+      _, loss, summary, error = sess.run([train_step, train_loss, merged, train_error])
       total_loss += loss
       total_error += error
 
@@ -230,7 +227,7 @@ def train(num_training_iterations, report_interval):
         total_error = 0
 
       if (train_iteration + 1) % report_interval == 0:
-        dataset_tensors_np, output_np, output_rom_weight_np = sess.run([dataset_tensors, output, output_rom_weight])
+        dataset_tensors_np, output_np = sess.run([dataset_tensors, output])
         dataset_string = dataset.to_human_readable(dataset_tensors_np,
                                                    output_np)
 
@@ -238,9 +235,6 @@ def train(num_training_iterations, report_interval):
                         train_iteration, total_loss / report_interval,
                         dataset_string)
         total_loss = 0
-
-        # print("rom weighting:")
-        # print(output_rom_weight_np)
 
         train_writer.add_summary(summary, train_iteration)
 
