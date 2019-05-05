@@ -47,22 +47,16 @@ class RepeatSequence(snt.AbstractModule):
       obs_flag_channel_zeros = tf.zeros([nb_vecs, 1], dtype=tf.float32)
       obs = tf.concat([obs_flag_channel_zeros, obs_pattern], 1)
 
-      # Add the flag to the observation
-      observation_with_flag = tf.concat([
-        obs,
-        tf.expand_dims(tf.concat([tf.constant([1], dtype=tf.float32), tf.zeros(self._nb_bits, dtype=tf.float32)], 0), 0)
-      ], 0)
-
       # Pad the observation
       observation_padded = tf.concat([
-        observation_with_flag,
+        obs,
         tf.zeros([nb_vecs*self._num_repeats, self.target_size], dtype=tf.float32)
       ], 0)
 
       # TARGET
 
       # Add zeros (padding) to the target
-      target_padding = tf.zeros([nb_vecs + 1, self.target_size], dtype=tf.float32)
+      target_padding = tf.zeros([nb_vecs, self.target_size], dtype=tf.float32)
 
       # Add the observation to the target
       target = tf.concat([target_padding, obs], 0)

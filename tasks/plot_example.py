@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 with tf.Session() as sess:
-  examples = sess.run(repeat_sequence.RepeatSequence(5, 5, 7, 4, 2)())
+  examples = sess.run(repeat_sequence.RepeatSequence(5, 5, 8, 4, 2)())
 
 for i in range(0, 2):
   fig = plt.figure()
