@@ -12,12 +12,14 @@ class RepeatSequence(snt.AbstractModule):
                min_nb_vecs=3,
                max_nb_vecs=5,
                nb_bits=7,
+               num_repeats=1,
                batch_size=16):
     super(RepeatSequence, self).__init__(name='RepeatSequence')
 
     self._min_nb_vecs = min_nb_vecs
     self._max_nb_vecs = max_nb_vecs
     self._nb_bits = nb_bits
+    self._num_repeats = num_repeats
     self._batch_size = batch_size
 
     self.target_size = self._nb_bits + 1
@@ -54,7 +56,7 @@ class RepeatSequence(snt.AbstractModule):
       # Pad the observation
       observation_padded = tf.concat([
         observation_with_flag,
-        tf.zeros([nb_vecs, self.target_size], dtype=tf.float32)
+        tf.zeros([nb_vecs*self._num_repeats, self.target_size], dtype=tf.float32)
       ], 0)
 
       # TARGET
@@ -64,6 +66,8 @@ class RepeatSequence(snt.AbstractModule):
 
       # Add the observation to the target
       target = tf.concat([target_padding, obs], 0)
+      for i in range(1,self._num_repeats):
+        target = tf.concat([target, obs], 0)
 
       obs_tensors.append(observation_padded)
       target_tensors.append(target)
