@@ -19,10 +19,9 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import sonnet as snt
 
 from dnc import dnc
-from dnc import repeat_copy
+from tasks import repeat_sequence
 
 FLAGS = tf.flags.FLAGS
 
@@ -37,12 +36,12 @@ tf.flags.DEFINE_integer("clip_value", 20,
 
 # Optimizer parameters.
 tf.flags.DEFINE_float("max_grad_norm", 50, "Gradient clipping norm limit.")
-tf.flags.DEFINE_float("learning_rate", 1e-4, "Optimizer learning rate.")
+tf.flags.DEFINE_float("learning_rate", 1e-2, "Optimizer learning rate.")
 tf.flags.DEFINE_float("optimizer_epsilon", 1e-10,
                       "Epsilon used for RMSProp optimizer.")
 
 # Task parameters
-tf.flags.DEFINE_integer("batch_size", 16, "Batch size for training.")
+tf.flags.DEFINE_integer("batch_size", 15, "Batch size for training.")
 tf.flags.DEFINE_integer("num_bits", 4, "Dimensionality of each vector to copy")
 tf.flags.DEFINE_integer(
     "min_length", 1,
@@ -85,7 +84,7 @@ def run_model(input_sequence, output_size):
   output_sequence, _ = tf.nn.dynamic_rnn(
       cell=dnc_core,
       inputs=input_sequence,
-      time_major=True,
+      time_major=False,
       initial_state=initial_state)
 
   return output_sequence
@@ -94,18 +93,14 @@ def run_model(input_sequence, output_size):
 def train(num_training_iterations, report_interval):
   """Trains the DNC and periodically reports the loss."""
 
-  dataset = repeat_copy.RepeatCopy(FLAGS.num_bits, FLAGS.batch_size,
-                                   FLAGS.min_length, FLAGS.max_length,
-                                   FLAGS.min_repeats, FLAGS.max_repeats)
+  dataset = repeat_sequence.RepeatSequence(5, 5, 7, 4, FLAGS.batch_size)
   dataset_tensors = dataset()
 
   output_logits = run_model(dataset_tensors.observations, dataset.target_size)
   # Used for visualization.
-  output = tf.round(
-      tf.expand_dims(dataset_tensors.mask, -1) * tf.sigmoid(output_logits))
+  output = tf.round(tf.sigmoid(output_logits))
 
-  train_loss = dataset.cost(output_logits, dataset_tensors.target,
-                            dataset_tensors.mask)
+  train_loss = dataset.cost(output_logits, dataset_tensors.target)
 
   # Set up optimizer with global norm clipping.
   trainable_variables = tf.trainable_variables()
