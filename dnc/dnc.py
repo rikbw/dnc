@@ -44,7 +44,8 @@ class DNC(snt.RNNCore):
                controller_config,
                output_size,
                clip_value=None,
-               name='dnc'):
+               name='dnc',
+               return_weights=False):
     """Initializes the DNC core.
 
     Args:
@@ -65,8 +66,17 @@ class DNC(snt.RNNCore):
       self._controller = snt.LSTM(**controller_config)
       self._access = access.MemoryAccess(**access_config)
 
+    self._memory_size = access_config.get('memory_size')
+    # Two vectors + mu + ? for the rom weights + 2 for the rom mode + 3 for the read mode + 2 for rom_mode + one time the original read weights
+    # + one time the forward weights
+    self._nb_extra_output = 2 * self._memory_size + 1 + self._access.rom_size + 2 + 3 + 2 + 2*self._memory_size
+
     self._access_output_size = np.prod(self._access.output_size.as_list())
+    if return_weights:
+       output_size += self._nb_extra_output
+
     self._output_size = output_size
+
     self._clip_value = clip_value or 0
 
     self._output_size = tf.TensorShape([output_size])
@@ -74,6 +84,8 @@ class DNC(snt.RNNCore):
         access_output=self._access_output_size,
         access_state=self._access.state_size,
         controller_state=self._controller.state_size)
+
+    self._return_weights = return_weights
 
   def _clip_if_enabled(self, x):
     if self._clip_value > 0:
@@ -112,14 +124,33 @@ class DNC(snt.RNNCore):
     controller_output = self._clip_if_enabled(controller_output)
     controller_state = tf.contrib.framework.nest.map_structure(self._clip_if_enabled, controller_state)
 
-    access_output, access_state = self._access(controller_output,
+    access_output, access_state, read_mode, original_read_weights, forward_weights = self._access(controller_output,
                                                prev_access_state)
 
     output = tf.concat([controller_output, batch_flatten(access_output)], 1)
+    output_size = self._output_size.as_list()[0]
+    if self._return_weights:
+      output_size -= self._nb_extra_output
+
     output = snt.Linear(
-        output_size=self._output_size.as_list()[0],
+        output_size=output_size,
         name='output_linear')(output)
     output = self._clip_if_enabled(output)
+
+    write_weights = access_state.write_weights
+    read_weights = access_state.read_weights
+
+    if self._return_weights:
+      output = tf.concat([output,
+                          read_weights[:, 0, :],
+                          write_weights[:, 0, :],
+                          access_state.mu,
+                          access_state.rom_weight,
+                          access_state.rom_mode,
+                          read_mode,
+                          access_state.rom_key,
+                          original_read_weights,
+                          forward_weights], 1)
 
     return output, DNCState(
         access_output=access_output,

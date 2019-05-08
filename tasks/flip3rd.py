@@ -1,86 +1,54 @@
 import sonnet as snt
 import tensorflow as tf
 
-import random
 import collections
-import numpy as np
 
 DatasetTensors = collections.namedtuple('DatasetTensors', ('observations', 'target'))
 
-# Repeat a sequence one time. Could at more sequences later for testing
-class RepeatSequence(snt.AbstractModule):
+# Flip the third vector of a sequence
+class Flip3rd(snt.AbstractModule):
 
-  def __init__(self,
-               min_nb_vecs=3,
-               max_nb_vecs=5,
-               nb_bits=7,
-               num_repeats=1,
-               batch_size=16):
-    super(RepeatSequence, self).__init__(name='RepeatSequence')
-
-    self._min_nb_vecs = min_nb_vecs
-    self._max_nb_vecs = max_nb_vecs
-    self._nb_bits = nb_bits
-    self._num_repeats = num_repeats
+  def __init__(self, nb_vecs, vec_length, batch_size, every_third=False):
+    super(Flip3rd, self).__init__(name='Flip3rd')
+    self._nb_vecs = nb_vecs
+    self._vec_length = vec_length
     self._batch_size = batch_size
-
-    self.target_size = self._nb_bits + 1
+    self._every_third = every_third
+    self.target_size = vec_length
 
   def _build(self):
     obs_tensors = []
     target_tensors = []
 
-    # Create the random variable
-    nb_vecs_batch = tf.random_uniform(
-        [1], minval=self._min_nb_vecs, maxval=self._max_nb_vecs+1, dtype=tf.int32)
-
     for batch_index in range(0, self._batch_size):
-      nb_vecs = nb_vecs_batch[0]
-
-      # OBSERVATION
-
-      # Pattern
       obs_pattern = tf.cast(
-        tf.random_uniform([nb_vecs, self._nb_bits], minval=0, maxval=2, dtype=tf.int32),
+        tf.random_uniform([self._nb_vecs, self._vec_length], minval=0, maxval=2, dtype=tf.int32),
         tf.float32
       )
 
-      # Add zeros in the flag channel
-      obs_flag_channel_zeros = tf.zeros([nb_vecs, 1], dtype=tf.float32)
-      obs = tf.concat([obs_flag_channel_zeros, obs_pattern], 1)
-
-      # Add the flag to the observation
-      observation_with_flag = tf.concat([
-        obs,
-        tf.expand_dims(tf.concat([tf.constant([1], dtype=tf.float32), tf.zeros(self._nb_bits, dtype=tf.float32)], 0), 0)
+      obs_padded = tf.concat([
+        obs_pattern,
+        tf.zeros([self._nb_vecs, self._vec_length], dtype=tf.float32)
       ], 0)
 
-      # Pad the observation
-      observation_padded = tf.concat([
-        observation_with_flag,
-        tf.zeros([nb_vecs*self._num_repeats, self.target_size], dtype=tf.float32)
+      target_padding = tf.zeros([self._nb_vecs, self._vec_length], dtype=tf.float32)
+
+      # Flip 3rd bit
+      obs_pattern_flipped = tf.concat([
+        obs_pattern[0:2],
+        tf.expand_dims(tf.ones(self._vec_length, dtype=tf.float32) - (obs_pattern[2]), 0),
+        obs_pattern[3:]
       ], 0)
 
-      # TARGET
+      target = tf.concat([target_padding, obs_pattern_flipped], 0)
 
-      # Add zeros (padding) to the target
-      target_padding = tf.zeros([nb_vecs + 1, self.target_size], dtype=tf.float32)
-
-      # Add the observation to the target,
-      target = tf.concat([target_padding, obs], 0)
-      for i in range(1,self._num_repeats):
-        target = tf.concat([target, obs], 0)
-
-      obs_tensors.append(observation_padded)
+      obs_tensors.append(obs_padded)
       target_tensors.append(target)
 
     return DatasetTensors(tf.convert_to_tensor(obs_tensors), tf.convert_to_tensor(target_tensors))
 
   def time_major(self):
     return False
-
-  def to_human_readable(self, data, model_output=None, whole_batch=False):
-    return bitstring_readable(data, self._batch_size, model_output, whole_batch)
 
   def cost(self, logits, targ):
     xent = tf.nn.sigmoid_cross_entropy_with_logits(labels=targ, logits=logits)
@@ -98,16 +66,6 @@ class RepeatSequence(snt.AbstractModule):
     return loss
 
   def error(self, logits, targ):
-    # output = tf.div(
-    #   tf.subtract(
-    #     logits,
-    #     tf.reduce_min(logits)
-    #   ),
-    #   tf.subtract(
-    #     tf.reduce_max(logits),
-    #     tf.reduce_min(logits)
-    #   )
-    # )
     output = tf.round(tf.sigmoid(logits))
     error = tf.subtract(output, targ)
     error = tf.square(error)
@@ -124,6 +82,8 @@ class RepeatSequence(snt.AbstractModule):
 
     return error
 
+  def to_human_readable(self, data, model_output=None, whole_batch=False):
+    return bitstring_readable(data, self._batch_size, model_output, whole_batch)
 
 def bitstring_readable(data, batch_size, model_output=None, whole_batch=False):
   """Produce a human readable representation of the sequences in data.
@@ -138,9 +98,9 @@ def bitstring_readable(data, batch_size, model_output=None, whole_batch=False):
   Returns:
     A string used to visualise the data batch. X axis is time, Y axis are vectors
   """
+
   def _readable(datum):
     return '+' + ' '.join(['-' if x == 0 else '%d' % x for x in datum]) + '+'
-
 
   # Transform input: shape is (batch_size, max_time, nb_bits)
   # This must become (batch_size, nb_bits, max_time)
