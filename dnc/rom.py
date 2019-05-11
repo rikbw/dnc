@@ -23,6 +23,11 @@ class ROM(snt.AbstractModule):
       'write_weight': memory_size,
       'next_rom_mode': 2
     }
+    for _, hsh, _ in content:
+      for key in hsh:
+        if key not in self._defaults:
+          raise Exception('Unknown key in ROM content: ' + key)
+
     self._content = self.read_content(content, self._defaults, 'float32')
     self._rom_memory_size = len(content)
     self._key_size = len(content[0][0])
