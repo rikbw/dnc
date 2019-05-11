@@ -13,7 +13,7 @@ class RepeatSequence(snt.AbstractModule):
   def __init__(self,
                min_nb_vecs=3,
                max_nb_vecs=5,
-               nb_bits=7,
+               nb_bits=8,
                num_repeats=1,
                batch_size=16):
     super(RepeatSequence, self).__init__(name='RepeatSequence')
@@ -24,7 +24,7 @@ class RepeatSequence(snt.AbstractModule):
     self._num_repeats = num_repeats
     self._batch_size = batch_size
 
-    self.target_size = self._nb_bits + 1
+    self.target_size = self._nb_bits
 
   def _build(self):
     obs_tensors = []
@@ -45,31 +45,21 @@ class RepeatSequence(snt.AbstractModule):
         tf.float32
       )
 
-      # Add zeros in the flag channel
-      obs_flag_channel_zeros = tf.zeros([nb_vecs, 1], dtype=tf.float32)
-      obs = tf.concat([obs_flag_channel_zeros, obs_pattern], 1)
-
-      # Add the flag to the observation
-      observation_with_flag = tf.concat([
-        obs,
-        tf.expand_dims(tf.concat([tf.constant([1], dtype=tf.float32), tf.zeros(self._nb_bits, dtype=tf.float32)], 0), 0)
-      ], 0)
-
       # Pad the observation
       observation_padded = tf.concat([
-        observation_with_flag,
+        obs_pattern,
         tf.zeros([nb_vecs*self._num_repeats, self.target_size], dtype=tf.float32)
       ], 0)
 
       # TARGET
 
       # Add zeros (padding) to the target
-      target_padding = tf.zeros([nb_vecs + 1, self.target_size], dtype=tf.float32)
+      target_padding = tf.zeros([nb_vecs, self.target_size], dtype=tf.float32)
 
       # Add the observation to the target,
-      target = tf.concat([target_padding, obs], 0)
+      target = tf.concat([target_padding, obs_pattern], 0)
       for i in range(1,self._num_repeats):
-        target = tf.concat([target, obs], 0)
+        target = tf.concat([target, obs_pattern], 0)
 
       obs_tensors.append(observation_padded)
       target_tensors.append(target)
