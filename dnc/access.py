@@ -116,19 +116,55 @@ class MemoryAccess(snt.RNNCore):
     weighting = [0] * memory_size
     weighting[0] = 1
 
+    # RANDOM COPY
+    # content = [
+    #   ([0, 0], {}, 0), # A value to read from to mix nothing
+    #   ([1, 1], {'read_mode': [0, 0, 1], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+    #   ([0, 0], {'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 0),
+    # ]
+
+    # REVERSE COPY
+    # weightings = []
+    # for i in range(0, 5):
+    #   temp_weighting = [0] * memory_size
+    #   temp_weighting[i] = 1
+    #   weightings.append(temp_weighting)
+    #
+    # content = [
+    #   ([0, 0], {}, 0), # A value to read from to mix nothing
+      # ([0, 1], {'write_weight': weightings[0], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'write_weight': weightings[1], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'write_weight': weightings[2], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'write_weight': weightings[3], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'write_weight': weightings[4]}, 0),
+      #
+      # ([1, 0], {'read_weight': weightings[4], 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'read_weight': weightings[3], 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'read_weight': weightings[2], 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'read_weight': weightings[1], 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
+      # ([0, 0], {'read_weight': weightings[0], 'write_gate': [0]}, 0)
+    # ]
+
+    # REPEAT SEQUENCE
+
     content = [
       ([0, 1], {}, 0), # A value to read from to mix nothing
-      # ([1, 0], {'write_gate': [1], 'write_weight': weighting, 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'allocation_gate': [1], 'write_gate': [1]}, 0),
-      # ([0, 0], {'next_rom_mode': [0, 1]}, 1),
-      # ([1, 1], {'read_weight': weighting, 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
-      # ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0]}, 0),
+      ([1, 0], {'write_gate': [1], 'write_weight': weighting, 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'allocation_gate': [1], 'write_gate': [1]}, 0),
+      ([1, 1], {'read_weight': weighting, 'write_gate': [0], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0], 'next_rom_mode': [0, 1]}, 1),
+      ([0, 0], {'write_gate': [0], 'read_mode': [0, 1, 0]}, 0),
     ]
 
     self.rom_size = len(content)
